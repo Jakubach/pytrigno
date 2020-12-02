@@ -123,7 +123,36 @@ class _BaseTrignoDaq(object):
     def _send_cmd(self, command):
         self._comm_socket.send(self._cmd(command))
         resp = self._comm_socket.recv(128)
-        self._validate(resp)
+        #self._validate(resp)
+        if('?') in command:
+            print("Query: {} <->  Reply: {}".format(command, self._get_reply(resp)))
+        else:
+            print("Command: {} <->  Reply: {}".format(command, self._get_reply(resp)))
+
+    def _get_reply(self, response):
+        reply = struct.unpack(str(len(response)) + 's', response)
+        reply = reply[0].decode(encoding='ascii')
+        if(self.CMD_TERM in reply):
+            reply = reply.replace(self.CMD_TERM,'')
+        return reply
+
+    def pair_sensor(self,sensor_number):
+        self._send_cmd(f'SENSOR {sensor_number} PAIR')
+
+    def is_paired(self, sensor_number):
+        self._send_cmd(f'SENSOR {sensor_number} PAIRED?')
+
+    def what_mode(self,sensor_number):
+        self._send_cmd(f'SENSOR {sensor_number} MODE?')
+
+    def is_active(self,sensor_number):
+        '''
+        TODO: List active sensors
+
+        :param sensor_number:
+        :return:
+        '''
+        self._send_cmd(f'SENSOR {sensor_number} ACTIVE?')
 
     @staticmethod
     def _cmd(command):
@@ -286,5 +315,70 @@ class TrignoAccel(_BaseTrignoDaq):
             is a point in time.
         """
         data = super(TrignoAccel, self).read(self.samples_per_read)
+        data = data[self.channel_range[0]:self.channel_range[1]+1, :]
+        return data
+
+class TrignoOrientation(_BaseTrignoDaq):
+    """
+    Delsys Trigno wireless EMG system orientation data.
+
+    Requires the Trigno Control Utility to be running.
+
+    Parameters
+    ----------
+    channel_range : tuple with 2 ints
+        Sensor channels to use, e.g. (lowchan, highchan) obtains data from
+        channels lowchan through highchan. Each sensor has three accelerometer
+        channels.
+    samples_per_read : int
+        Number of samples per channel to read in each read operation.
+    host : str, optional
+        IP address the TCU server is running on. By default, the device is
+        assumed to be attached to the local machine.
+    cmd_port : int, optional
+        Port of TCU command messages.
+    data_port : int, optional
+        Port of TCU accelerometer data access. By default, 50042 is used, but
+        it is configurable through the TCU graphical user interface.
+    timeout : float, optional
+        Number of seconds before socket returns a timeout exception.
+    """
+    def __init__(self, channel_range, samples_per_read, host='localhost',
+                 cmd_port=50040, data_port=50044, timeout=10):
+        super(TrignoOrientation, self).__init__(
+            host=host, cmd_port=cmd_port, data_port=data_port,
+            total_channels=144, timeout=timeout)
+
+        self.channel_range = channel_range
+        self.samples_per_read = samples_per_read
+
+        self.rate = 148.1
+
+    def set_channel_range(self, channel_range):
+        """
+        Sets the number of channels to read from the device.
+
+        Parameters
+        ----------
+        channel_range : tuple
+            Sensor channels to use (lowchan, highchan).
+        """
+        self.channel_range = channel_range
+        self.num_channels = channel_range[1] - channel_range[0] + 1
+
+    def read(self):
+        """
+        Request a sample of data from the device.
+
+        This is a blocking method, meaning it returns only once the requested
+        number of samples are available.
+
+        Returns
+        -------
+        data : ndarray, shape=(num_channels, num_samples)
+            Data read from the device. Each channel is a row and each column
+            is a point in time.
+        """
+        data = super(TrignoOrientation, self).read(self.samples_per_read)
         data = data[self.channel_range[0]:self.channel_range[1]+1, :]
         return data
