@@ -38,6 +38,8 @@ class _BaseTrignoDaq(object):
 
     BYTES_PER_CHANNEL = 4
     CMD_TERM = '\r\n\r\n'
+    #CONFIGURATION_MODES = {'EMG':40, 'EMGACC':3, 'EMGGYRO':7, 'EMGIMU':65, 'EMGORIENTATION':66, 'IMU':609}
+    CONFIGURATION_MODES = {'40':'EMG', '3':'EMG+ACC', '7':'EMG+GYRO', '65':'EMG+IMU', '66':'EMG+ORIENTATION', '609':'IMU'}
 
     def __init__(self, host, cmd_port, data_port, total_channels, timeout):
         self.host = host
@@ -120,14 +122,16 @@ class _BaseTrignoDaq(object):
         except:
             pass
 
-    def _send_cmd(self, command):
+    def _send_cmd(self, command, return_reply = False):
         self._comm_socket.send(self._cmd(command))
-        resp = self._comm_socket.recv(128)
-        #self._validate(resp)
+        raw_resp = self._comm_socket.recv(128)
+        formated_resp = self._get_reply(raw_resp)
         if('?') in command:
-            print("Query: {} <->  Reply: {}".format(command, self._get_reply(resp)))
+            print("Query: {} <->  Reply: {}".format(command, formated_resp))
         else:
-            print("Command: {} <->  Reply: {}".format(command, self._get_reply(resp)))
+            print("Command: {} <->  Reply: {}".format(command, formated_resp))
+        if return_reply:
+            return formated_resp
 
     def _get_reply(self, response):
         reply = struct.unpack(str(len(response)) + 's', response)
@@ -136,6 +140,9 @@ class _BaseTrignoDaq(object):
             reply = reply.replace(self.CMD_TERM,'')
         return reply
 
+    def set_mode(self,sensor_number, mode_number):
+        self._send_cmd(f'SENSOR {sensor_number} SETMODE {mode_number}')
+
     def pair_sensor(self,sensor_number):
         self._send_cmd(f'SENSOR {sensor_number} PAIR')
 
@@ -143,7 +150,11 @@ class _BaseTrignoDaq(object):
         self._send_cmd(f'SENSOR {sensor_number} PAIRED?')
 
     def what_mode(self,sensor_number):
-        self._send_cmd(f'SENSOR {sensor_number} MODE?')
+        reply = self._send_cmd(f'SENSOR {sensor_number} MODE?', return_reply = True)
+        try:
+            print(f'This is {self.CONFIGURATION_MODES[reply]} mode.')
+        except:
+            print('Unrecognized mode')
 
     def is_active(self,sensor_number):
         '''
@@ -352,7 +363,7 @@ class TrignoOrientation(_BaseTrignoDaq):
         self.channel_range = channel_range
         self.samples_per_read = samples_per_read
 
-        self.rate = 148.1
+        self.rate = 74
 
     def set_channel_range(self, channel_range):
         """
