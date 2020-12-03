@@ -72,6 +72,28 @@ class _BaseTrignoDaq(object):
         """
         self._send_cmd('START')
 
+    def read_all(self, timeout = 20): #timeout in ms
+        #https: // stackoverflow.com / questions / 2719017 / how - to - set - timeout - on - pythons - socket - recv - method
+        self._data_socket.setblocking(False)
+        packet = bytes()
+        lacking_bytes = 0
+        while(True):
+            try:
+                packet += self._data_socket.recv(lacking_bytes + self._min_recv_size)
+            except BlockingIOError: #add timeout exception
+                lacking_bytes = len(packet) % self._min_recv_size
+                if(lacking_bytes == 0):
+                    break
+                else:
+                    pass
+        number_of_samples = int(len(packet) / self._min_recv_size)
+        print(number_of_samples)
+        data = numpy.asarray(
+            struct.unpack('<' + 'f' * self.total_channels * number_of_samples, packet))
+        data = numpy.transpose(data.reshape((-1, self.total_channels)))
+        self._data_socket.setblocking(True)
+        return data
+
     def read(self, num_samples):
         """
         Request a sample of data from the device.
