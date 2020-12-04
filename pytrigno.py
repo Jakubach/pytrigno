@@ -415,3 +415,44 @@ class TrignoOrientation(_BaseTrignoDaq):
         data = super(TrignoOrientation, self).read(self.samples_per_read)
         data = data[self.channel_range[0]:self.channel_range[1]+1, :]
         return data
+
+class TrignoAdapter(_BaseTrignoDaq):
+    '''TODO: add get sensor ID in base class'''
+    active_sensor = [] #list of ids of active sensors
+ #super().CONFIGURATION_MODES.keys()
+
+    def __init__(self, adapter_label = ''):
+        self.adapter_label = adapter_label #for example hand_sensors, it has to be unique
+        #print(super().CONFIGURATION_MODES)
+
+    @classmethod
+    def __create_sensor_instance(cls,sensor_mode, params=None):
+        SENSOR_MODE_TO_CLASS = {
+            'EMG': TrignoEMG,
+            'EMG+ORIENTATION': TrignoOrientation,
+            'EMG+ACCEL': TrignoAccel,
+        }
+        return SENSOR_MODE_TO_CLASS[sensor_mode](params)
+
+    def add_sensor(self,sensor_mode, sensor_label = ''): #sensor label has not to be unique
+        #try:
+        trigno_sensor = self.__create_sensor_instance(sensor_mode)
+        #    self.active_sensors.append(trigno_sensor)
+            #super().CONFIGURATION_MODES
+            #if(sensor_mode == 'EMG'):
+
+            #pass
+        #except:
+        #    print(f'Unrecognized sensor mode {sensor_mode}. Available types: {super().CONFIGURATION_MODES}')
+
+
+
+
+
+
+
+
+
+
+
+
